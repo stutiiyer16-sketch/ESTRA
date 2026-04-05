@@ -1,29 +1,32 @@
 # ESTRA Collaborative Research Platform
 
-A minimal editorial-style multi-user research workspace with a public-facing ESTRA landing experience.
+A minimal editorial-style multi-user research workspace built with React + Tailwind + Supabase.
 
-## What changed
+## Features
 
-- Public site keeps the ESTRA editorial theme and sections.
-- `Apply to Participate` now opens **sign up / login** (Supabase email + password).
-- After login, users can enter the editable collaborative workspace.
-- Every editable record now includes:
-  - `is_public` (Public / Private)
-  - `is_posted` (willing to publish)
-- Public visitors can see only entries that are `is_public = true` and `is_posted = true`.
+- Lightweight email-based identity (mock sign-in) for attribution.
+- Shared multi-user data persistence in Supabase.
+- Real-time syncing across users via Supabase realtime subscriptions.
+- Three collaborative modules:
+  - **Flagship Project**: editable section blocks with `last_updated` and `updated_by`.
+  - **Geopolitics Tracker**: editable table, add new rows, status filtering.
+  - **Insights & Signals**: feed-style entries with create + edit.
 
-## 1) Configure environment
+## 1) Create your Supabase project
+
+1. Go to [Supabase](https://supabase.com/) and create a project.
+2. In **Project Settings → API**, copy:
+   - Project URL
+   - `anon` public key
+3. Copy `.env.example` to `.env` and paste keys:
 
 ```bash
 cp .env.example .env
 ```
 
-Set:
+## 2) Create database tables
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-
-## 2) Run SQL schema (Supabase SQL Editor)
+Run this SQL in **SQL Editor**:
 
 ```sql
 create table if not exists flagship_project (
@@ -31,9 +34,7 @@ create table if not exists flagship_project (
   section_name text not null unique,
   content text default '',
   last_updated timestamptz default now(),
-  updated_by text default '',
-  is_public boolean default false,
-  is_posted boolean default false
+  updated_by text default ''
 );
 
 create table if not exists geopolitics_tracker (
@@ -44,9 +45,7 @@ create table if not exists geopolitics_tracker (
   impact text default '',
   source text default '',
   notes text default '',
-  last_updated timestamptz default now(),
-  is_public boolean default false,
-  is_posted boolean default false
+  last_updated timestamptz default now()
 );
 
 create table if not exists insights_signals (
@@ -56,31 +55,23 @@ create table if not exists insights_signals (
   type text default 'Insight' check (type in ('Insight', 'Misinformation Response')),
   summary text default '',
   tags text default '',
-  date date default current_date,
-  is_public boolean default false,
-  is_posted boolean default false
+  date date default current_date
 );
 ```
 
-If tables already exist, run:
+## 3) Enable access (for quick research collaboration)
+
+For quick setup, disable RLS on these tables (or add equivalent policies):
 
 ```sql
-alter table flagship_project add column if not exists is_public boolean default false;
-alter table flagship_project add column if not exists is_posted boolean default false;
-alter table geopolitics_tracker add column if not exists is_public boolean default false;
-alter table geopolitics_tracker add column if not exists is_posted boolean default false;
-alter table insights_signals add column if not exists is_public boolean default false;
-alter table insights_signals add column if not exists is_posted boolean default false;
+alter table flagship_project disable row level security;
+alter table geopolitics_tracker disable row level security;
+alter table insights_signals disable row level security;
 ```
 
-## 3) Authentication setup
+## 4) Enable realtime
 
-In Supabase:
-
-- Authentication → Providers → **Email** enabled.
-- For easiest local testing, disable email confirmation (or confirm accounts manually).
-
-## 4) Realtime + access
+In SQL editor:
 
 ```sql
 alter publication supabase_realtime add table flagship_project;
@@ -88,13 +79,16 @@ alter publication supabase_realtime add table geopolitics_tracker;
 alter publication supabase_realtime add table insights_signals;
 ```
 
-For quick collaboration testing, allow table reads/writes with your RLS policies (or disable RLS during development).
-
-## 5) Start
+## 5) Run app
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open in two browsers to verify realtime collaboration and public-post visibility behavior.
+Open the displayed local URL in two browsers/windows to verify live collaboration.
+
+## Notes
+
+- Authentication is intentionally lightweight: email input is stored locally and used for `updated_by` attribution.
+- If env keys are missing, the UI loads but editing is disabled until Supabase is configured.
